@@ -1,0 +1,91 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <model name="floating_box">
+    <static>false</static>
+
+    <link name="base_link">
+      <pose>0 0 0 0 1.57079632679 0</pose>
+
+      <inertial>
+        <!-- Light enough to float strongly -->
+        <mass>600.0</mass>
+        <inertia>
+          <!-- Approximate inertia for a solid cylinder:
+               length = 1.0 m, radius = 0.35 m, mass = 120 kg -->
+          <ixx>540.0</ixx>
+          <iyy>4860.0</iyy>
+          <izz>4860.0</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.6</radius>
+            <length>3.0</length>
+          </cylinder>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <cylinder>
+            <radius>0.6</radius>
+            <length>3.0</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.9 0.4 0.1 1</ambient>
+          <diffuse>0.9 0.4 0.1 1</diffuse>
+        </material>
+      </visual>
+
+      <velocity_decay>
+        <linear>0.5</linear>
+        <angular>0.5</angular>
+      </velocity_decay>
+    </link>
+
+    <plugin
+        filename="libSurface.so"
+        name="maritime::Surface">
+        <link_name>base_link</link_name>
+        <hull_length>3.0</hull_length>
+        <hull_radius>0.6</hull_radius>
+        <fluid_level>0</fluid_level>
+        <points>
+            <point>-1.2 0 0</point>
+            <point> 0.0 0 0</point>
+            <point> 1.2 0 0</point>
+        </points>
+        <wavefield>
+        <topic>/gazebo/wavefield/parameters</topic>
+        </wavefield>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-hydrodynamics-system"
+      name="gz::sim::systems::Hydrodynamics">
+      <link_name>base_link</link_name>
+
+      <!-- linear drag -->
+      <xU>-5.0</xU>
+      <yV>-5.0</yV>
+      <zW>-20.0</zW>
+      <kP>-0.5</kP>
+      <mQ>-0.5</mQ>
+      <nR>-0.5</nR>
+
+      <!-- quadratic drag -->
+      <xUabsU>-2.0</xUabsU>
+      <yVabsV>-2.0</yVabsV>
+      <zWabsW>-10.0</zWabsW>
+      <kPabsP>-0.1</kPabsP>
+      <mQabsQ>-0.1</mQabsQ>
+      <nRabsR>-0.1</nRabsR>
+    </plugin>
+  </model>
+</sdf>

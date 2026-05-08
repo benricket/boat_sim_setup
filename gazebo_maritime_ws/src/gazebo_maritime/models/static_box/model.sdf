@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <model name="static_box">
+    <static>true</static>
+
+    <link name="link">
+      <!-- Pose: x y z roll pitch yaw -->
+      <pose>0 0 0 0 0 0</pose>
+
+      <!-- Visual (what you see) -->
+      <visual name="visual">
+        <geometry>
+          <box>
+            <!-- Size: x y z (meters) -->
+            <size>4 4 4</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.1 0 1 1</ambient> <!-- blue -->
+        </material>
+      </visual>
+
+      <!-- Collision (what physics uses) -->
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>1 1 1</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>

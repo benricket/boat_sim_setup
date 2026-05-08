@@ -1,0 +1,78 @@
+{
+  "world": "sydney_regatta",
+  "model": "static_box",
+  "obstacles": [
+    {
+      "name": "fixed_box_1",
+      "x": -532.0,
+      "y": 175.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_2",
+      "x": -528.5,
+      "y": 180.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_3",
+      "x": -528.5,
+      "y": 185.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_4",
+      "x": -528.5,
+      "y": 190.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_5",
+      "x": -528.5,
+      "y": 195.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_6",
+      "x": -528.5,
+      "y": 210.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_7",
+      "x": -528.5,
+      "y": 215.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    {
+      "name": "fixed_box_8",
+      "x": -533.5,
+      "y": 213.0,
+      "z": 0.1,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    }
+  ]
+}
