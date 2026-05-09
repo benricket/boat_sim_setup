@@ -94,5 +94,14 @@ The Hydrodynamics plugin also takes the name of a link to apply forces to and ot
 
 #### Interoperability between Gazebo, Ardupilot, and Python
 
+in progress
 
 #### Troubleshooting
+
+A few issues that I ran into, or steps to take when certain parts of the project aren't working:
+
+- If changes to the SDF file don't seem to be having a strong effect on the simulation, **remember to rebuild** --- run ```colcon build --merge-install` from the parent directory of the `src/` folder. If this still doesn't work, check to make sure the SDF files in the `install/` directory reflect changes, and check the path to ensure Gazebo is finding these files.
+
+- If `gz sim` is not recognized as a valid option (and a smaller subset of `gz` commands are) this indicates that an incomplete install of Gazebo is located first on the PATH. This may be due to how the Python bindings for gz-transport are installed --- when I first installed these, I used a different Gazebo version by mistake, and it was found first on the PATH. Make sure the proper Gazebo executable is called (`which gz`) and update the path if necessary to point to the proper Gazebo Harmonic install. Also, make sure you've sourced the `.env` file if in a new terminal session.
+
+- If the simulation won't resume and returns a `duplicate input frame` error, this is caused by the SITL simulation from Ardupilot running and interfering with the Gazebo simulation before it starts. I'm not sure yet why this happens, but it can be fixed by stopping the SITL simulation, restarting the Gazebo simulation, and unpausing the Gazebo simulation for at least a moment before launching the SITL simulation via `sim_vehicle.py`. 
