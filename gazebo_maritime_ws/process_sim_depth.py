@@ -318,7 +318,12 @@ class DepthBroadcast():
 
                 # Initialize the link to transmit data
                 try:
-                    self.connection_tx = mavutil.mavlink_connection(serial_port_tx)
+                    self.connection_tx = mavutil.mavlink_connection(
+                        serial_port_tx,
+                        source_system=200,
+                        source_component=196,
+                        force_mavlink2=True,
+                    )
                 except (SerialException, TimeoutError):
                     print(f"\nFailed to initialize the connection at {serial_port_tx}!\n")
                     self.connection_tx = None                    
@@ -328,8 +333,8 @@ class DepthBroadcast():
            self.connection_rx = None
         
     
-    def send_depth(self,dephts):
-        depths_passed_int = [int(x * 100) for x in depths] # convert m to cm
+    def send_depth(self,depths):
+        depths_passed_int = [max(int(self.min_supported_dist),min(int(self.max_supported_dist),int(x * 100))) for x in depths] # convert m to cm
         frame = mavutil.mavlink.MAV_FRAME_BODY_FRD
         angle_offset = float(self.fov_deg / 2)
         if self.connection_tx is not None: # Send to boat if connection is alive
@@ -345,11 +350,11 @@ class DepthBroadcast():
                 angle_offset,
                 frame
             )
-            # self.connection_tx.mav.heartbeat_send(
-            #     mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
-            #     mavutil.mavlink.MAV_AUTOPILOT_INVALID,
-            #     0, 0, 0
-            # )
+            self.connection_tx.mav.heartbeat_send(
+                mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
+                mavutil.mavlink.MAV_AUTOPILOT_INVALID,
+                0, 0, 0
+            )
 
 if __name__ == "__main__":
     # From gazebo sensor parameters:
@@ -365,16 +370,16 @@ if __name__ == "__main__":
         cx=cx,
         cy=cy,
     )
-    #depth_sender = DepthBroadcast(hfov, serial_port_rx='udp:127.0.0.1:14552' ,serial_port_tx='udpout:127.0.0.1:14560')
+    #depth_sender = DepthBroadcast(hfov, serial_port_rx='udp:127.0.0.1:14552' ,serial_port_tx="udpout:127.0.0.1:14560")
 
     while True:
         try:
             depths, angles = viewer.run()
             #if depths is not None:
-                #print(f"depths is not none")
-                #depth_sender.send_depth(depths)
-            if cv2.waitKey(1) & 0xFF in (27, ord('q')):
-                break
+            #    print(f"depths is not none")
+            #    depth_sender.send_depth(depths)
+            #if cv2.waitKey(1) & 0xFF in (27, ord('q')):
+            #    break
 
             time.sleep(0.01)
         except KeyboardInterrupt:

@@ -33,7 +33,7 @@ while True:
         print(f"  frame:         {d['frame']}")
         print(f"  min_distance:  {d['min_distance']}")
         print(f"  max_distance:  {d['max_distance']}")
-        print(f"  increment:     {d['increment']}")
+        print(f"  increment_f:     {d['increment_f']}")
         print(f"  angle_offset:  {d['angle_offset']}")
         print(f"  distances:     {d['distances'][:]} ...")  # print first 10
 
@@ -41,7 +41,7 @@ while True:
         logfile.write(
             f"{time.time()},{d['time_usec']},{d['frame']},"
             f"{d['min_distance']},{d['max_distance']},"
-            f"{d['increment']},{d['angle_offset']},"
+            f"{d['increment_f']},{d['angle_offset']},"
             f"{d['distances']}\n"
         )
         logfile.flush()
