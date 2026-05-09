@@ -70,3 +70,29 @@ When the waypoints are uploaded from outside of QGC, they may not immediately ap
 
 The paths in the environment file are currently set up to look at an `install/` directory, which is populated by building the `src/` directory. While not necessary for the XML-adjacent files that make up the models and worlds, this is a clearer pattern that becomes necessary when writing plugins, which would need to be compiled into executable code. This, because we've set up the repository this way, **remember to** `colcon build --merge-install` **from the** `gazebo_maritime_ws` **directory after making any changes to a model file**. Otherwise, you may think your changes ineffective, when in reality they haven't been copied over to the `install/` directory.
 
+#### Editing model and world files
+
+The model and world files used in this tutorial are SDF ('Simulation Description Format') files, a file format used by Gazebo to describe the layout of an object or scene in a simulation. These have a hierarchical structure and are formatted like an XML file. For documentation on what elements are defined in an SDF, the [SDFormat website](https://sdformat.org/) provides class references with examples of the different elements that can be defined within an SDF file. This is particularly useful when using elements like `<sensor>`, which have different options depending on the choice of higher-level sensor.
+
+For working with these files, I would recommend reading the provided SDF files in the tutorial, defining both the `sydney_regatta` world and the `wam-v` boat. These have been put together well, and were the primary way in which I learned about structuring the simpler SDF files and adding or removing elements to the provided ones. There are also plenty of examples online for model files in Gazebo.
+
+<img src="images/config_file.png" width="300">
+
+Note that when making a new model in Gazebo, it requires not just an SDF file, but a directory in the `gazebo_maritime_ws/src/gazebo_maritime/models` directory, with the name of the directory the same as the model name. Inside this directory, the model SDF file should be named `model.sdf`, and a separate `model.config` file must exist for the model to be recognized. At minimum, this config file provides the name of the model, an XML version, and an SDF version. This can also include a description and the attribution of the file's author. 
+
+<img src="images/floating_box.png" width="400">
+
+In order to change any of these files in place, some of the parameters that can be edited are fairly apparent. For instance, this is part of the SDF file for the floating cylinder. The higher level element is the `<model>`, which describes the name of the model file. Each model can cotain a number of links, which specify specific frames local to the object and are used for positioning different elements of the object. This contains only a single base_link, which has attached to it both an inertial element (describes the mass and intertia matrix for the object, allowing physics to apply to it) and a collision element (which allows the object to collide with other objects, and defines the shape of its collision.) Later in the file, a visual element also ensures the object can be rendered. 
+
+In the context of this simulation, models need to include two plugins in order to ensure the water affects them properly. This first of these is `libSurface`, a wrapper for buoyancy with water at a fixed height which allows for a wavefield topic to be provided in order for cylindrical objects to respond to waves. The second of these plugins is Hydrodynamics, which specifies how different hydrodynamic forces act on the object to damp its motion through the water.
+
+<img src="images/water_plugins.png" width="400">
+
+The libSurface plugin should be applied to each link with intertia. The plugin requires you provide a link to apply the buoyant forces to, provided with a length and radius of the link. This plugin assumes we're using cylindrical floats on a boat, and so specifically expects a cylindrical body, though something with dimensions close to this should still work. The plugin also requires knowledge of the vertical level fluid exists below (in our simulation, the surface is at height `0`) as well as a topic to listen to for wavefield parameters, which describe how sinusoidal waves are applied to the simulation. The `points` element describes all the points in the link in which these buoyant forces should be applied --- by providing forces at the ends of the cylinder, we allow for forces at different points to turn the object.
+
+The Hydrodynamics plugin also takes the name of a link to apply forces to and otherwise consists entirely of a number of physical parameters describing how hydrodynamic forces would act on the object. These correspond to the linear and quadratic drag coefficients in each of the 6 degrees of freedom of the object, and are explained [here](https://gazebosim.org/api/sim/9/theory_hydrodynamics.html).
+
+#### Interoperability between Gazebo, Ardupilot, and Python
+
+
+#### Troubleshooting
