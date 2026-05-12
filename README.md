@@ -103,13 +103,13 @@ In order to allow Ardupilot to control a joint, it needs to have a topic in Gaze
 To use this, we first launch our Gazebo sim and unpause it. Then, we launch the Ardupilot's SITL (software in the loop) simulator, which runs on the local machine. Note that the command line arguments for this used for this example I've set up are as follows:
 
 ```
-sim_vehicle.py -v Rover --model JSON --mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"
+sim_vehicle.py -v Rover --mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"
 ```
 
 Breaking this down:
 - `sim_vehicle.py` is an executable Python script that runs the SITL simulation. If this command isn't found, it means the Ardupilot repository isn't on the PATH --- consult the Ardupilot SITL documentation to do this.
 - `-v Rover` specifies the vehicle type. `Rover` is what we use, as our vehicle has the Rover control scheme --- two inputs, each providing forward thrust. This determines the supported flight modes and ensures our movement commands translate to actuator commands properly. If we were using a different vehicle type (for instance, a drone) we would change this.
-- `--mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"` defines the arguments to be passed to the simulation in MAVProxy, the default software for interfacing with an SITL simulation. `--out` adds an output port for the simulation to use, which can be used for reading data from the simulation, and is analogous to running the command `output add $ADDRESS:$PORT` for the same address and port number. In this case, one output is for getting a heartbeat for the depth upload, while one output is for logging the depths via a separate script to ensure they're being passed. `--link` adds a new MAVLink link, which we use for passing the obstacle depths to the SITL simulation, and is analogous to `link add $PROTOCOL:$ADDRESS:$PORT` in MAVProxy (i.e. `link add udp:127.0.0.1:14560`). I'm still new to the intricacies of MAVLink message passing and the network structure, so for better info on the difference betwee outputs or links, consult the [documentation](https://ardupilot.org/dev/docs/rover-sitlmavproxy-tutorial.html). 
+- `--mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"` defines the arguments to be passed to the simulation in MAVProxy, the default software for interfacing with an SITL simulation. `--out` adds an output port for the simulation to use, which can be used for reading data from the simulation, and is analogous to running the command `output add $ADDRESS:$PORT` for the same address and port number. In this case, one output is for getting a heartbeat for the depth upload, while one output is for logging the depths via a separate script to ensure they're being passed. `--link` adds a new MAVLink link, which we use for passing the obstacle depths to the SITL simulation, and is analogous to `link add $PROTOCOL:$ADDRESS:$PORT` in MAVProxy (e.g. `link add udp:127.0.0.1:14560`). I'm still new to the intricacies of MAVLink message passing and the network structure, so for better info on the difference betwee outputs or links, consult the [documentation](https://ardupilot.org/dev/docs/rover-sitlmavproxy-tutorial.html). 
 
 The SITL simulator has a text-based interface and continually logs debug output from the vehicle --- flight mode changes, warnings of position estimates being off, battery percentage, etc. From here, we can launch other modules of the software, like `module load map` for a map or `module load proximity` to see distance sensor readings. We can also place watches on specific parameters (i.e. `watch SERVO_OUTPUT_RAW).
 
@@ -118,6 +118,41 @@ Because a graphical UI can be easier to navigate, I use [QGroundControl](https:/
 <img src="images/qgc_link.png" width="500">
 
 If this is configured properly, QGC should recognize the same vehicle detected by the SITL simulation, provided the SITL simulation is running. 
+
+For this project and similar projects, we also need to interface with the simulation directly over Gazebo. While a common way of doing this is with ROS, using ROS adds an additional layer of complexity that makes the setup more difficult and particular, despite the power and features that ROS offers. Because of this, we instead use the `gz-transport` library, Gazebo Transport. Gazebo Transport adds a messaging functionality to Gazebo with a publisher-subscriber model, similar to ROS. In this, publishers, which could be sensors, plugins, external scripts, etc, are able to write a value to a topic. Subscribers are able to subscribe to a specific topic, and receive the data published to the topic they are subscribed to. The actual internals of that message passing are handled by that library; all that we need to do is identify what data we want to pass, who publishes it, and who subscribes to the topic published to. 
+
+In this case, I'm using `gz-transport` to subscribe to the depth image published by the simulated RGB+D camera in order to directly process it in a Python script. The publishing side is easy, because the `<sensor>` element in the SDF already does it for us. In the `model.sdf` for the WAM-V, we can look at the depth sensor element, which has a `<GstCameraPlugin>` element as a child:
+
+```
+<plugin name="GstCameraPlugin"
+    filename="GstCameraPlugin">
+    <udp_host>127.0.0.1</udp_host>
+    <udp_port>5610</udp_port>
+    <use_basic_pipeline>true</use_basic_pipeline>
+    <use_cuda>false</use_cuda>
+
+    <image_topic>/depth_camera/depth_image</image_topic>
+    <enable_topic>/depth_camera/depth_image/enable_streaming</enable_topic>
+</plugin>
+```
+
+This plugin uses GStreamer to stream the depth image to the topic provided. We provide a topic for it to stream to (this is the "publish" part of the publisher-subscriber model) as well as a topic used to enable the streaming. Once we write a True boolean value to the enabling topic, the readings from the depth camera will be continually published to the image topic. 
+
+In the `process_sim_depth.py` script, we initialize the subscription is initialized very straightforwardly:
+
+```python
+ok = self.node.subscribe(Image, self.topic, self._cb)
+```
+
+From the Node object, which is an attribute of the class we define here, we call `subscribe()`, providing it with a message type (`Image`, defined in `gz-msgs`), a topic name (`self.topic`, which ends up being `"/depth_camera/depth_image"`), and a callback function `_cb()`. Every time a new value is published to this topic, the callback function will be invoked with the new data as the first argument passed. We also check the return status of this call to `subscribe()` in order to make sure the subscription goes through.
+
+In the callback, we need to convert the data into a workable form for further processing. This is the function of the `decode_depth()` command we define:
+
+<img src="images/decode_depth.png" width="600">
+
+The data is passed as a raw number of bytes, with additional fields specifying the image height, width, and stride or step (bytes per row). By determining either the number of bytes per pixel or number of bytes per row, we can determine the size of the data type used to represent a single pixel, and assume this to either be a 32-bit float or 16-bit unsigned int. Once we detemine which of the two it is, we use `np.frombuffer` to construct a Numpy array from the raw string of bytes, givne the array's desired shape and the data type. 
+
+This would look different for different forms of data, but the general pipeline is the same for using gz-transport in other ways --- determine which topic to publish or subscribe to, determine the type of the message to pass, write out some code to either pack the data into that message format or unpack it, and process it. We could imagine using this to query a specific state from the Gazebo simulation for use in a script, or imagine changing some aspect of the simulation in response to another Python program running in parallel, perhaps modifying or building on the simulation in some way. 
 
 #### Troubleshooting
 
