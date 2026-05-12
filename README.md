@@ -154,12 +154,24 @@ The data is passed as a raw number of bytes, with additional fields specifying t
 
 This would look different for different forms of data, but the general pipeline is the same for using gz-transport in other ways --- determine which topic to publish or subscribe to, determine the type of the message to pass, write out some code to either pack the data into that message format or unpack it, and process it. We could imagine using this to query a specific state from the Gazebo simulation for use in a script, or imagine changing some aspect of the simulation in response to another Python program running in parallel, perhaps modifying or building on the simulation in some way. 
 
-#### Troubleshooting
+#### Troubleshooting & Tips
 
 A few issues that I ran into, or steps to take when certain parts of the project aren't working:
 
-- If changes to the SDF file don't seem to be having a strong effect on the simulation, **remember to rebuild** --- run ```colcon build --merge-install` from the parent directory of the `src/` folder. If this still doesn't work, check to make sure the SDF files in the `install/` directory reflect changes, and check the path to ensure Gazebo is finding these files.
+- If changes to the SDF file don't seem to be having a strong effect on the simulation, **remember to rebuild** --- run `colcon build --merge-install` from the parent directory of the `src/` folder. If this still doesn't work, check to make sure the SDF files in the `install/` directory reflect changes, and check the path to ensure Gazebo is finding these files.
 
 - If `gz sim` is not recognized as a valid option (and a smaller subset of `gz` commands are) this indicates that an incomplete install of Gazebo is located first on the PATH. This may be due to how the Python bindings for gz-transport are installed --- when I first installed these, I used a different Gazebo version by mistake, and it was found first on the PATH. Make sure the proper Gazebo executable is called (`which gz`) and update the path if necessary to point to the proper Gazebo Harmonic install. Also, make sure you've sourced the `.env` file if in a new terminal session.
 
 - If the simulation won't resume and returns a `duplicate input frame` error, this is caused by the SITL simulation from Ardupilot running and interfering with the Gazebo simulation before it starts. I'm not sure yet why this happens, but it can be fixed by stopping the SITL simulation, restarting the Gazebo simulation, and unpausing the Gazebo simulation for at least a moment before launching the SITL simulation via `sim_vehicle.py`. 
+
+- If a MAVLink link isn't being published to at all, it'll indicate this with the `link 2 down` log message in MAVProxy (or for a differently number link, if it isn't link 2 that's down).
+
+- If I leave Gazebo running for long enough, sometimes the spawned obstacles will disappear and the GUI for moving and rotating things in the world will no longer work. I don't know why this is, but restarting the simulator fixes it.
+
+- Checking the status of MAVLink messages can be done either in MAVProxy, in QGC's MAVLink Inspector (under 'Analyze Tools'), or by directly asking for messages over pymavlink. If these are all connected to the same simulation, the values returned should be the same.
+
+- If the MAXProxy modules with GUI aren't working (like `module load map`/`--map`) this means MAVProxy was installed without wxpython for GUI. I found that `pip install MAVProxy` was enought to fix this --- the package found by pip included the GUI components and installed wxpython as a dependency, whereas however I got MAVProxy before didn't.
+
+- If QGC ends up losing connection to the simulated vehicle periodically when running external Python scripts with pymavlink, it means that the connection QGC has on port 14550 is being stolen by something else, likely one of these scripts. This is why I add multiple UDP outputs for the SITL simulation --- I don't want to have pymavlink connect to port 14550, as this could interrupt QGC's connection.
+
+As a concluding thought, this is still very rough right now, but I'm planning on touching it up in the future to make the obstacle avoidance code functional and easy to run while also firming up my own knowledge about Gazebo, MAVLink, and Ardupilot.
