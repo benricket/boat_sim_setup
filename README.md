@@ -6,7 +6,7 @@ This project is an attempt to make the task of setting up an ASV (autonomous sur
 
 This code uses Gazebo Harmonic as well as Ardupilot. First, clone this repository with the `--recurse-submodules` flag, as the Ardupilot repository is contained as a submodule. 
 
-Afterwards, follow the instructions for setting up [Gazebo Harmonic](https://gazebosim.org/docs/harmonic/getstarted/) and [Ardupilot SITL](https://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html). Afterwards, ensure that the `src/` directory of the repository is part of the Gazebo resource path, plugin path, and library path. This can be set in the `gazebo_maritime_ws/tutorial.env` environment file --- change the paths in the file to ones that match your computer, and source this environment before running the simulation with `source gazebo_maritime_ws/tutorial.env`. Using the rest of the code is typically easiest from the `gazebo_maritime_ws/` directory.
+Afterwards, follow the instructions for setting up [Gazebo Harmonic](https://gazebosim.org/docs/harmonic/getstarted/) and [Ardupilot SITL](https://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html). Afterwards, ensure that the `src/` directory of the repository is part of the Gazebo resource path, plugin path, and library path. This can be set in the `gazebo_maritime_ws/tutorial.env` environment file --- change the paths in the file to ones that match your computer, and source this environment before running the simulation with `source gazebo_maritime_ws/tutorial.env`. Using the rest of the code is typically easiest from the `gazebo_maritime_ws/` directory. 
 
 #### Running the individual parts of the code
 
@@ -28,12 +28,12 @@ source tutorial.env
 
 Run the Ardupilot simulator without any additional ports:
 ```
-sim_vehicle.py -v Rover -f gazebo-rover --model JSON
+sim_vehicle.py -v Rover -f gazebo-rover
 ```
 
 In the Ardupilot simulator, we need to add a few outputs or links in order for the simulator to communicate with other things we need.
 ```
-sim_vehicle.py -v Rover --model JSON --mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"
+sim_vehicle.py -v Rover --mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"
 ```
 
 mention these are heartbeat to the vision script, output to log obstacle distances, and link to communicate obstacle distances, 
@@ -94,7 +94,30 @@ The Hydrodynamics plugin also takes the name of a link to apply forces to and ot
 
 #### Interoperability between Gazebo, Ardupilot, and Python
 
-in progress
+Interoperability with Ardupilot requires the `ArduPilotPlugin` Gazebo plugin, which allows for Ardupilot servo outputs to be mapped to Gazebo topics, which can control elements like thrusters in order to move the robot. As a SITL simulation defaults to running on localhost on port 9002, we set the `<fdm_addr>` and `<fdm_port_in>` fields respectively in the plugin element. The other top-level elements describe connection parameters like maximum timeouts as well as coordinate conventions. 
+
+<img src="images/ardupilot_code.png" width="600">
+
+In order to allow Ardupilot to control a joint, it needs to have a topic in Gazebo for control. For instance, the `wam-v` by default uses the `Thruster` plugin, which allows thrust control at the propellor joints to be commanded on the `cmd_thrust` topic off of the given joint. Because this Thruster plugin already listens to this topic, by providing as the topic for Ardupilot to publish to, we can complete the mapping between Ardupilot servo outputs and actual movement of the boat. Each of these (one for each side) is contained in a `<control>` block in the plugin, which describes the joint to act on, the topic to publish to, minimum and maximum servo outputs for this joint, and a multiplier to scale the outputs to something physically valid. Note that the numbers of the control elements correspond to the servo output numbers from Ardupilot, **with a shift of 1** --- Ardupilot's `SERVO1_RAW` maps to control channel `0`, etc. 
+
+To use this, we first launch our Gazebo sim and unpause it. Then, we launch the Ardupilot's SITL (software in the loop) simulator, which runs on the local machine. Note that the command line arguments for this used for this example I've set up are as follows:
+
+```
+sim_vehicle.py -v Rover --model JSON --mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"
+```
+
+Breaking this down:
+- `sim_vehicle.py` is an executable Python script that runs the SITL simulation. If this command isn't found, it means the Ardupilot repository isn't on the PATH --- consult the Ardupilot SITL documentation to do this.
+- `-v Rover` specifies the vehicle type. `Rover` is what we use, as our vehicle has the Rover control scheme --- two inputs, each providing forward thrust. This determines the supported flight modes and ensures our movement commands translate to actuator commands properly. If we were using a different vehicle type (for instance, a drone) we would change this.
+- `--mavproxy-args="--out=127.0.0.1:14552 --out=127.0.0.1:14553 --master=udp:127.0.0.1:14560"` defines the arguments to be passed to the simulation in MAVProxy, the default software for interfacing with an SITL simulation. `--out` adds an output port for the simulation to use, which can be used for reading data from the simulation, and is analogous to running the command `output add $ADDRESS:$PORT` for the same address and port number. In this case, one output is for getting a heartbeat for the depth upload, while one output is for logging the depths via a separate script to ensure they're being passed. `--link` adds a new MAVLink link, which we use for passing the obstacle depths to the SITL simulation, and is analogous to `link add $PROTOCOL:$ADDRESS:$PORT` in MAVProxy (i.e. `link add udp:127.0.0.1:14560`). I'm still new to the intricacies of MAVLink message passing and the network structure, so for better info on the difference betwee outputs or links, consult the [documentation](https://ardupilot.org/dev/docs/rover-sitlmavproxy-tutorial.html). 
+
+The SITL simulator has a text-based interface and continually logs debug output from the vehicle --- flight mode changes, warnings of position estimates being off, battery percentage, etc. From here, we can launch other modules of the software, like `module load map` for a map or `module load proximity` to see distance sensor readings. We can also place watches on specific parameters (i.e. `watch SERVO_OUTPUT_RAW).
+
+Because a graphical UI can be easier to navigate, I use [QGroundControl](https://qgroundcontrol.com/) as the ground control station instead of MAVProxy. As the SITL automatically establishes a link over UDP at port 14550, we can ensure QGC connects to this link. By cliking on the `Click to manually connect` text on the top of the screen, clicking on the arrow, and clicking `Configure`, we can add a link, specify its port, and specify its protocol. 
+
+<img src="images/qgc_link.png" width="500">
+
+If this is configured properly, QGC should recognize the same vehicle detected by the SITL simulation, provided the SITL simulation is running. 
 
 #### Troubleshooting
 
